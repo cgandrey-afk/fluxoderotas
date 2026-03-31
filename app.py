@@ -220,7 +220,7 @@ with tab2:
         for chave, nota in list(st.session_state.banco_notas.items()):
             try:
                 partes = chave.split('|')
-                end_label = f"{partes[0]}, {partes[1]} {partes[2]}" if len(partes) == 3 else chave.replace('|', ', ')
+                end_label = f" 📍 {partes[0]}, {partes[1]} {partes[2]}" if len(partes) == 3 else chave.replace('|', ', ')
                 col_obs, col_end, col_del = st.columns([2, 2, 1])
                 col_obs.write(f"⚠️ **{nota}**")
                 col_end.write(f"{end_label}")
