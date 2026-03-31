@@ -178,7 +178,12 @@ with tab1:
                 st.success(f"✅ Agrupamento concluído. Notas inseridas no campo Sequence.")
                 st.dataframe(df_f[cols_final])
                 csv = df_f[cols_final].to_csv(index=False).encode('utf-8-sig')
-                st.download_button("📥 Baixar Planilha", csv, f"Rota_Notas_Sequence_{arquivo.name}")
+                st.download_button(
+    label="📥 Baixar Planilha",
+    data=csv,
+    file_name="rota_processada.csv", # Nome fixo evita erros de extensão dupla
+    mime="text/csv"
+)
 
 with tab2:
     st.session_state.banco_notas = carregar_obs()
