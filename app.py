@@ -8,8 +8,8 @@ from datetime import datetime
 from math import radians, cos, sin, asin, sqrt
 from difflib import SequenceMatcher
 
-# 1. Configuração inicial do Dashboard
-st.set_page_config(page_title="Andrey Delivery Pro", layout="wide", page_icon="🚚")
+# 1. Configuração inicial do Dashboard - NOME ATUALIZADO
+st.set_page_config(page_title="Gerenciador de Rotas", layout="wide", page_icon="🚚")
 
 # --- BANCO DE DADOS DE NOTAS (JSON) ---
 OBS_FILE = "observacoes.json"
@@ -89,7 +89,7 @@ if 'enderecos_planilha' not in st.session_state:
     st.session_state.enderecos_planilha = []
 
 # --- INTERFACE ---
-st.title("🚚 Andrey Delivery Pro")
+st.title("🚚 Gerenciador de Rotas")
 
 tab1, tab2 = st.tabs(["📋 Processar Planilha", "📝 Gerenciar Notas"])
 
@@ -177,7 +177,7 @@ with tab1:
                 
                 cols_final = ['Sequence', 'Destination Address', 'Bairro', 'City', 'Zipcode/Postal code', 'Latitude', 'Longitude']
                 
-                st.success("✅ Processamento concluído com a nova formatação!")
+                st.success("✅ Processamento concluído!")
                 st.dataframe(df_f[cols_final])
                 
                 data_str = datetime.now().strftime("%d-%m-%Y")
