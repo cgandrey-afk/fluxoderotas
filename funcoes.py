@@ -40,6 +40,12 @@ def salvar_json(dados, arquivo):
 
 # --- FUNÇÕES DE LIMPEZA E EXTRAÇÃO ---
 
+def sao_ruas_similares(rua1, rua2):
+    # Se forem idênticas, ok
+    if rua1 == rua2: return True
+    # Se forem 85% parecidas (ex: Umberto Vetoratto vs Umberto Vettorato), ok
+    return SequenceMatcher(None, rua1, rua2).ratio() > 0.85
+
 def limpar_duplicidade_numero(texto):
     if pd.isna(texto): return ""
     texto = str(texto).strip()
@@ -148,7 +154,7 @@ def processar_agrupamento(df_bruto, notas_vivas, db_condos):
     df['Rua_Base'] = df['Destination Address'].apply(normalizar_rua)
     df['Comp_Padrao'] = df['Destination Address'].apply(extrair_complemento_puro).apply(padronizar_complemento)
     
-    # Chave para ignorar variações de texto no final (Ex: "Ckmercio")
+    # Chave para buscas rápidas
     df['Chave_Rua_Num'] = df.apply(lambda r: limpar_para_agrupamento(r['Rua_Base'], r['Num_Casa']), axis=1)
 
     # 2. Verificar Notas
@@ -163,7 +169,7 @@ def processar_agrupamento(df_bruto, notas_vivas, db_condos):
         return False
     df['Tem_Minha_Nota'] = df.apply(verificar_nota, axis=1)
 
-    # 3. Definir Destinos (Regras de Condomínio)
+    # 3. Definir Destinos (Regras de Condomínio da Aba 3)
     def definir_destino(row):
         chave = f"{row['Rua_Base']}, {row['Num_Casa']}"
         for principal, info in db_condos.items():
@@ -177,32 +183,37 @@ def processar_agrupamento(df_bruto, notas_vivas, db_condos):
 
     df['Destino_Agrupamento'] = df.apply(definir_destino, axis=1)
 
-   # 4. Agrupamento (GroupID) - LÓGICA DE JUNÇÃO TOTAL
+    # 4. LOOP DE AGRUPAMENTO INTELIGENTE (Onde você deve colar o código)
     group_ids = np.zeros(len(df))
     curr = 1
     for i in range(len(df)):
         if group_ids[i] == 0:
             group_ids[i] = curr
             for j in range(i + 1, len(df)):
-                # Bloqueio por nota: Se um tem nota e o outro não, não junta.
+                # Bloqueio por nota: Se um tem nota e o outro não, não junta
                 if df.iloc[i]['Tem_Minha_Nota'] != df.iloc[j]['Tem_Minha_Nota']:
                     continue
                 
-                # CHAVES DE COMPARAÇÃO
-                mesma_chave = (df.iloc[i]['Chave_Rua_Num'] == df.iloc[j]['Chave_Rua_Num'] and df.iloc[i]['Chave_Rua_Num'] != "")
+                # --- INÍCIO DA NOVA LÓGICA ---
+                # 1. Os números das casas TÊM que ser iguais
+                mesmo_numero = (df.iloc[i]['Num_Casa'] == df.iloc[j]['Num_Casa'] and df.iloc[i]['Num_Casa'] != "")
+                
+                # 2. As ruas têm que ser parecidas (Vetoratto vs Vettorato)
+                mesma_rua = sao_ruas_similares(df.iloc[i]['Rua_Base'], df.iloc[j]['Rua_Base'])
+                
+                # 3. Ou se o destino final for o mesmo (Regras da Aba 3)
                 mesmo_destino = (df.iloc[i]['Destino_Agrupamento'] == df.iloc[j]['Destino_Agrupamento'])
                 
-                # Se for o mesmo endereço ou o mesmo destino definido
-                if mesma_chave or mesmo_destino:
-                    # ÚNICA EXCEÇÃO: Se na Aba 3 estiver como "Varias portarias de 1 condominio"
-                    # o Destino_Agrupamento será "REGRA_SEPARAR". Só aqui ele checa o apartamento.
+                # SE O NÚMERO É IGUAL E A RUA É PARECIDA -> JUNTA TUDO!
+                if (mesmo_numero and mesma_rua) or mesmo_destino:
+                    # Regra de separação por torres (Aba 3)
                     if df.iloc[i]['Destino_Agrupamento'] == "REGRA_SEPARAR" or df.iloc[j]['Destino_Agrupamento'] == "REGRA_SEPARAR":
                         if df.iloc[i]['Comp_Padrao'] == df.iloc[j]['Comp_Padrao']:
                             group_ids[j] = curr
                     else:
-                        # PARA TODO O RESTO: Viu que é o mesmo número? 
-                        # JUNTA TUDO (Ignora se um é A34, J34, Casa ou Comércio)
+                        # Se não for regra de separar, junta pelo número da casa + rua similar
                         group_ids[j] = curr
+                # --- FIM DA NOVA LÓGICA ---
             curr += 1
 
     df['GroupID'] = group_ids
