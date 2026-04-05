@@ -74,7 +74,7 @@ def mostrar_aba_condos():
 
             end_base_input = st.text_input(
                 "Endereço base",
-                placeholder="Ex: RUA EMA, 150"
+                placeholder="Ex: RUA CENTRAL, 150"
             )
             # Garante que a base já tenha a vírgula: RUA EMA, 150
             endereco_base = padronizar_portaria(end_base_input)
