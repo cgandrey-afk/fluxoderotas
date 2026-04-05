@@ -3,4 +3,4 @@ pandas
 openpyxl
 numpy
 num2words
-geopy.distance
+geopy
