@@ -1,15 +1,17 @@
 import streamlit as st
 import re
+# Importamos as novas funções de nuvem do seu funcoes.py
 from funcoes import (
-    carregar_json,
-    salvar_json,
-    formatar_endereco_condo,
-    CONDO_FILE
+    carregar_dados_fluxoderotas, 
+    salvar_dados_fluxoderotas,
+    formatar_endereco_condo
 )
 
 def mostrar_aba_condos():
     st.subheader("🏢 Cadastro de Condomínios")
-    db_condo = carregar_json(CONDO_FILE)
+    
+    # BUSCA NA NUVEM em vez de arquivo local
+    db_condo = carregar_dados_fluxoderotas("condominios")
 
     # --- INICIALIZAÇÃO DO STATE ---
     if 'temp_enderecos_grupo' not in st.session_state:
@@ -21,10 +23,9 @@ def mostrar_aba_condos():
 
     rc = st.session_state.reset_count
 
-    # --- SELEÇÃO INICIAL (O QUE FICA VISÍVEL) ---
+    # --- SELEÇÃO INICIAL ---
     st.markdown("### ⚙️ Como deseja cadastrar?")
     
-    # Buscamos o tipo se estiver editando para pré-selecionar
     val_atual = db_condo.get(st.session_state.editando_nome, {}) if st.session_state.editando_nome else {}
     idx_init = 0
     if val_atual.get("tipo") == "separado_por_bloco": idx_init = 2
@@ -39,15 +40,13 @@ def mostrar_aba_condos():
 
     if tipo_selecionado == "Selecione...":
         st.info("Escolha uma opção acima para exibir o formulário.")
-        # Se não houver nada selecionado, listamos os cadastrados lá embaixo e paramos o script aqui
         exibir_listagem_condos(db_condo, rc)
         return
 
-    # Define a lógica baseada na escolha
     e_multi_portaria = "Várias Portarias" in tipo_selecionado
     tipo_final_string = "separado_por_bloco" if e_multi_portaria else "multi_ruas"
 
-    # --- FORMULÁRIO (AGORA VISÍVEL) ---
+    # --- FORMULÁRIO ---
     st.divider()
     if st.session_state.editando_nome:
         st.warning(f"📝 Editando: {st.session_state.editando_nome}")
@@ -71,7 +70,6 @@ def mostrar_aba_condos():
     st.markdown("### 📍 Configuração dos Endereços")
     
     if e_multi_portaria:
-        # MODO VÁRIAS PORTARIAS: Rua/Num são fixos para o grupo, varia o Bloco
         col_r, col_n = st.columns([3, 1])
         with col_r: rua_fixa = st.text_input("Rua Principal do Condomínio", value=val_atual.get("rua_fixa", ""), key=f"rf_{rc}")
         with col_n: num_fixo = st.text_input("Número", value=val_atual.get("num_fixo", ""), key=f"nf_{rc}")
@@ -80,16 +78,13 @@ def mostrar_aba_condos():
         
         if st.button("➕ Adicionar Bloco/Portaria"):
             if rua_fixa and num_fixo and bloco_in:
-                # Monta ex: "RUA EXEMPLO, 100 BLOCO A"
                 novo_end = formatar_endereco_condo(f"{rua_fixa}, {num_fixo} {bloco_in}")
                 if novo_end not in st.session_state.temp_enderecos_grupo:
                     st.session_state.temp_enderecos_grupo.append(novo_end)
                     st.rerun()
             else:
                 st.error("Preencha a Rua, Número e o Bloco.")
-
     else:
-        # MODO 1 PORTARIA: Rua/Num variam na lista
         col_r, col_n = st.columns([3, 1])
         with col_r: rua_in = st.text_input("Rua", key=f"ri_{rc}")
         with col_n: num_in = st.text_input("Número", key=f"ni_{rc}")
@@ -115,18 +110,16 @@ def mostrar_aba_condos():
 
     st.divider()
 
-    # --- CAMPO DE PORTARIA PRINCIPAL (Só aparece no modo 1 Portaria) ---
     portaria_final = ""
     if not e_multi_portaria:
         portaria_final = st.text_input("Endereço da Portaria (Waze)", value=val_atual.get("portaria", ""), key=f"port_fin_{rc}")
 
-    # --- SALVAMENTO ---
+    # --- SALVAMENTO NA NUVEM ---
     if st.button("💾 SALVAR CADASTRO", type="primary"):
         if not nome_grupo or not st.session_state.temp_enderecos_grupo:
             st.error("Nome e ao menos um endereço são obrigatórios.")
         else:
-            # Estrutura do JSON
-            dados = {
+            dados_novos = {
                 "tipo": tipo_final_string,
                 "cidade": cidade_grupo,
                 "bairro": bairro_grupo,
@@ -135,31 +128,40 @@ def mostrar_aba_condos():
             }
             
             if e_multi_portaria:
-                dados["portarias"] = st.session_state.temp_enderecos_grupo
-                dados["rua_fixa"] = rua_fixa
-                dados["num_fixo"] = num_fixo
+                dados_novos["portarias"] = st.session_state.temp_enderecos_grupo
+                dados_novos["rua_fixa"] = rua_fixa
+                dados_novos["num_fixo"] = num_fixo
             else:
-                dados["portaria"] = formatar_endereco_condo(portaria_final)
+                dados_novos["portaria"] = formatar_endereco_condo(portaria_final)
 
-            # Se mudou o nome, apaga o antigo
+            # Lógica para atualizar o dicionário do banco
             if st.session_state.editando_nome and st.session_state.editando_nome != nome_grupo:
-                if st.session_state.editando_nome in db_condo: del db_condo[st.session_state.editando_nome]
+                if st.session_state.editando_nome in db_condo: 
+                    del db_condo[st.session_state.editando_nome]
 
-            db_condo[nome_grupo] = dados
-            salvar_json(db_condo, CONDO_FILE)
-            st.session_state.editando_nome = None
-            st.session_state.temp_enderecos_grupo = []
-            st.session_state.reset_count += 1
-            st.success("Salvo com sucesso!")
-            st.rerun()
+            db_condo[nome_grupo] = dados_novos
+            
+            # SALVA NO FIRESTORE
+            if salvar_dados_fluxoderotas(db_condo, "condominios"):
+                st.session_state.editando_nome = None
+                st.session_state.temp_enderecos_grupo = []
+                st.session_state.reset_count += 1
+                st.success("Condomínio salvo na nuvem com sucesso!")
+                st.rerun()
+            else:
+                st.error("Erro ao salvar no banco de dados.")
 
     exibir_listagem_condos(db_condo, rc)
 
 def exibir_listagem_condos(db_condo, rc):
     st.divider()
     st.write("### 🗂️ Condomínios Cadastrados")
+    if not db_condo:
+        st.info("Nenhum condomínio cadastrado na nuvem.")
+        return
+
     for nome, info in db_condo.items():
-        with st.expander(f"{nome} ({info.get('bairro')})"):
+        with st.expander(f"{nome} ({info.get('bairro', 'Bairro não inf.')})"):
             st.write(f"Tipo: {info.get('tipo')}")
             st.code("\n".join(info.get("enderecos", [])))
             
@@ -169,7 +171,11 @@ def exibir_listagem_condos(db_condo, rc):
                 st.session_state.temp_enderecos_grupo = info.get("enderecos", []).copy()
                 st.session_state.reset_count += 1
                 st.rerun()
+            
             if c2.button("🗑️ Excluir", key=f"ex_{nome}_{rc}"):
                 del db_condo[nome]
-                salvar_json(db_condo, CONDO_FILE)
-                st.rerun()
+                if salvar_dados_fluxoderotas(db_condo, "condominios"):
+                    st.success("Excluído com sucesso!")
+                    st.rerun()
+                else:
+                    st.error("Erro ao excluir do banco.")
