@@ -295,83 +295,60 @@ def formatar_endereco_agrupado(row, db_condos):
 
     # 2. BUSCA NO CADASTRO
     for nome_grupo, info in db_condos.items():
-        # Captura dados do cadastro (JSON)
-        bairro_cad = str(info.get('bairro', '')).upper().strip()
-        cidade_cad = str(info.get('cidade', '')).upper().strip()
-        cep_cad = "".join(filter(str.isdigit, str(info.get('cep', ''))))
-
-        # --- LÓGICA DE VALIDAÇÃO DE LOCALIDADE (CORRIGIDA) ---
-        local_bate = False
         
-        # Prioridade 1: CEP
-        if cep_cad and cep_planilha == cep_cad:
-            local_bate = True
-        # Prioridade 2: Cidade + Bairro (com tolerância para "Jardim", "JD", etc)
-        elif cidade_planilha == cidade_cad:
-            # Verifica se um nome está contido no outro (resolve Pauliceia vs Jardim Pauliceia)
-            if bairro_cad in bairro_planilha or bairro_planilha in bairro_cad:
-                local_bate = True
-            # Ou se a semelhança é alta (para erros de digitação)
-            elif SequenceMatcher(None, bairro_planilha, bairro_cad).ratio() > 0.8:
-                local_bate = True
-            
-        if not local_bate:
-            continue # Se a localidade não bate, pula para o próximo condomínio do JSON
-
-        # --- SE CHEGOU AQUI, A LOCALIDADE BATEU. AGORA TESTA O ENDEREÇO ---
-
-        # CASO A: MULTI-RUAS (O novo layout que você fez)
+        # CASO A: MULTI-RUAS (Onde estão o Maria Tereza, etc)
         if info.get('tipo') == "multi_ruas":
-            # Normaliza a lista de endereços do cadastro
-            enderecos_lista = [normalizar_termos_condo(e) for e in info.get('enderecos', [])]
-            # Endereço vindo da planilha
-            atual_formatado = normalizar_termos_condo(f"{rua_planilha} {num_planilha}")
-            
-            if atual_formatado in enderecos_lista:
-                portaria = str(info.get('portaria', '')).upper()
-                return f"📍 {portaria}"
+            # Agora varremos a lista de endereços cadastrados
+            for item in info.get('enderecos', []):
+                if not isinstance(item, dict): continue # Pula se for dado antigo (string)
 
-        # No CASO B: SEPARADO POR BLOCO
+                # Extrai dados do item do cadastro
+                rua_cad = str(item.get('rua', '')).upper().strip()
+                num_cad = str(item.get('numero', '')).upper().strip()
+                bairro_cad = str(item.get('bairro', '')).upper().strip()
+                cidade_cad = str(item.get('cidade', '')).upper().strip()
+                cep_cad = "".join(filter(str.isdigit, str(item.get('cep', ''))))
+
+                # --- VALIDAÇÃO DE LOCALIDADE (CIDADE + BAIRRO/CEP) ---
+                local_bate = False
+                if cep_cad and cep_planilha == cep_cad:
+                    local_bate = True
+                elif cidade_planilha == cidade_cad:
+                    # Verifica se o bairro está contido ou é muito similar
+                    if bairro_cad in bairro_planilha or bairro_planilha in bairro_cad:
+                        local_bate = True
+                    elif SequenceMatcher(None, bairro_planilha, bairro_cad).ratio() > 0.8:
+                        local_bate = True
+
+                # --- SE A LOCALIDADE BATEU, TESTA RUA E NÚMERO ---
+                if local_bate:
+                    # Comparamos a rua e o número exatamente
+                    if rua_planilha == rua_cad and num_planilha == num_cad:
+                        portaria = str(info.get('portaria', '')).upper()
+                        return f"📍 {portaria}"
+
+        # CASO B: SEPARADO POR BLOCO (Mantendo sua lógica original)
         elif info.get('tipo') == "separado_por_bloco":
-            # Pegamos o que a regex extraiu da planilha (ex: "BL B TORRE 3")
             bloco_planilha = normalizar_termos_condo(row.get('Bloco', ''))
             match_condo_base = False
             
-            # Guardamos para o Debug
-            row['Debug_Bloco_Planilha'] = bloco_planilha
-            
             for portaria_cadastrada in info.get('portarias', []):
                 p_cad_norm = normalizar_termos_condo(portaria_cadastrada)
-                
-                # 1. Verifica se a rua e o número batem com esta portaria do JSON
                 if rua_planilha in p_cad_norm and num_planilha in p_cad_norm:
                     match_condo_base = True
-                    
-                    # --- LÓGICA INTELIGENTE DE BUSCA E FORMATAÇÃO ---
-                    
-                    # A. Verifica se você cadastrou uma TORRE no JSON (ex: "TORRE 3")
+                    # Lógica de Torre/Bloco
                     match_t_json = re.search(r'TORRE\s*([A-Z0-9]+)', p_cad_norm)
-                    if match_t_json:
-                        id_torre = match_t_json.group(1)
-                        # Se a planilha também tem essa TORRE, formata como T + número
-                        if f"TORRE {id_torre}" in bloco_planilha:
-                            return f"📍 {rua_planilha}, {num_planilha} T{id_torre}"
-
-                    # B. Verifica se você cadastrou um BLOCO no JSON (ex: "BL B")
+                    if match_t_json and f"TORRE {match_t_json.group(1)}" in bloco_planilha:
+                        return f"📍 {rua_planilha}, {num_planilha} T{match_t_json.group(1)}"
+                    
                     match_bl_json = re.search(r'BL\s*([A-Z0-9]+)', p_cad_norm)
-                    if match_bl_json:
-                        id_bloco = match_bl_json.group(1)
-                        # Se a planilha também tem esse BLOCO, formata como BL + letra
-                        if f"BL {id_bloco}" in bloco_planilha:
-                            return f"📍 {rua_planilha}, {num_planilha} BL {id_bloco}"
-            
-            # Se reconheceu o condomínio mas o bloco/torre específico não deu match
-            if match_condo_base:
-                return f"📍 {rua_planilha}, {num_planilha}"
+                    if match_bl_json and f"BL {match_bl_json.group(1)}" in bloco_planilha:
+                        return f"📍 {rua_planilha}, {num_planilha} BL {match_bl_json.group(1)}"
             
             if match_condo_base:
                 return f"📍 {rua_planilha}, {num_planilha}"
-    # 3. IDENTIFICAÇÃO GENÉRICA (Fora do cadastro)
+
+    # 3. IDENTIFICAÇÃO GENÉRICA (Se não achou no banco, tenta o padrão de condomínio)
     termos_condominio = [r'\bAP\b', r'\bAPT\b', r'\bAPTO\b', r'\bBL\b', r'\bBLOCO\b', r'\bTORRE\b', r'\bEDIFICIO\b']
     if any(re.search(p, end_original) for p in termos_condominio):
         return montar_endereco_limpo(end_original, rua_planilha, num_planilha)
