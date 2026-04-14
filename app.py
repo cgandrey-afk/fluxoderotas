@@ -22,6 +22,23 @@ tab1, tab2, tab3 = st.tabs([
 ])
 
 with tab1:
+    # Mantemos o CSS para o botão vermelho, mas ajustamos para não forçar largura total 
+    # a menos que você queira. Removi o 'width: 100%' para ele respeitar o alinhamento natural.
+    st.markdown("""
+        <style>
+        div.stButton > button[kind="primary"] {
+            background-color: #ff4b4b;
+            color: white;
+            border: none;
+            font-weight: bold;
+        }
+        div.stButton > button[kind="primary"]:hover {
+            background-color: #ff1a1a;
+            color: white;
+        }
+        </style>
+    """, unsafe_allow_html=True)
+
     arquivo = st.file_uploader("1. Carregar Planilha", type=['xlsx', 'csv'], key="up_v5")
 
     if arquivo:
@@ -36,13 +53,12 @@ with tab1:
                 st.session_state.enderecos_planilha = novos
                 st.rerun()
 
-        if st.button("🚀 Processar e Agrupar AGORA"):
+        # Botão alinhado à esquerda (padrão)
+        if st.button("🚀 Processar e Agrupar AGORA", type="primary"):
             with st.spinner("Buscando dados na nuvem e processando rotas..."):
-                # BUSCA NO FIRESTORE (Persistente mesmo após o Sleep)
                 notas_vivas = carregar_dados_fluxoderotas("observacoes")
                 db_condos = carregar_dados_fluxoderotas("condominios")
 
-                # Processamento utilizando os dados da nuvem
                 df_f = processar_agrupamento(df_temp, notas_vivas, db_condos)
 
                 cols_final = [
@@ -51,6 +67,8 @@ with tab1:
                 ]
 
                 st.success("✅ Processamento concluído!")
+                
+                # Tabela pegando a tela toda (use_container_width=True)
                 st.dataframe(df_f[cols_final], use_container_width=True)
 
                 data_str = datetime.now().strftime("%d-%m-%Y")
@@ -63,9 +81,11 @@ with tab1:
                     label="📥 Baixar Planilha para Roteirizador",
                     data=csv,
                     file_name=nome_final,
-                    mime="text/csv"
+                    mime="text/csv",
+                    use_container_width=True # Botão de download também largo para facilitar
                 )
-
+                
+                
 with tab2:
     import interface_notas
     interface_notas.mostrar_aba_notas()
