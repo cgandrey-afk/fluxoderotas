@@ -10,7 +10,7 @@ from funcoes import (
 def mostrar_aba_condos():
     st.subheader("🏢 Cadastro de Condomínios")
     
-    # BUSCA NA NUVEM em vez de arquivo local
+    # BUSCA NA NUVEM
     db_condo = carregar_dados_fluxoderotas("condominios")
 
     # --- INICIALIZAÇÃO DO STATE ---
@@ -23,31 +23,8 @@ def mostrar_aba_condos():
 
     rc = st.session_state.reset_count
 
-    # --- SELEÇÃO INICIAL ---
-    st.markdown("### ⚙️ Como deseja cadastrar?")
+    st.markdown("### ⚙️ Configuração do Grupo")
     
-    val_atual = db_condo.get(st.session_state.editando_nome, {}) if st.session_state.editando_nome else {}
-    idx_init = 0
-    if val_atual.get("tipo") == "separado_por_bloco": idx_init = 2
-    elif val_atual.get("tipo") == "multi_ruas": idx_init = 1
-
-    tipo_selecionado = st.radio(
-        "Selecione o modelo de condomínio:",
-        ["Selecione...", "1 Portaria (Várias ruas/números para o mesmo local)", "Várias Portarias (Mesmo endereço, mas portarias por Bloco/Torre)"],
-        index=idx_init,
-        key=f"tipo_main_{rc}"
-    )
-
-    if tipo_selecionado == "Selecione...":
-        st.info("Escolha uma opção acima para exibir o formulário.")
-        exibir_listagem_condos(db_condo, rc)
-        return
-
-    e_multi_portaria = "Várias Portarias" in tipo_selecionado
-    tipo_final_string = "separado_por_bloco" if e_multi_portaria else "multi_ruas"
-
-    # --- FORMULÁRIO ---
-    st.divider()
     if st.session_state.editando_nome:
         st.warning(f"📝 Editando: {st.session_state.editando_nome}")
         if st.button("❌ Cancelar Edição"):
@@ -56,97 +33,92 @@ def mostrar_aba_condos():
             st.session_state.reset_count += 1
             st.rerun()
 
-    nome_grupo = st.text_input("Nome do Condomínio", value=st.session_state.editando_nome if st.session_state.editando_nome else "", key=f"nome_{rc}")
-    
-    col_cid, col_bai, col_cep = st.columns([2, 2, 1])
-    with col_cid:
-        cidade_grupo = st.text_input("Cidade", value=val_atual.get("cidade", "CAMPINAS"), key=f"cid_{rc}").upper()
-    with col_bai:
-        bairro_grupo = st.text_input("Bairro", value=val_atual.get("bairro", ""), key=f"bai_{rc}").upper()
-    with col_cep:
-        cep_grupo = st.text_input("CEP", value=val_atual.get("cep", ""), key=f"cep_{rc}")
+    nome_grupo = st.text_input("Nome do Condomínio (Ex: Cond. Jd. Paulicéia)", 
+                               value=st.session_state.editando_nome if st.session_state.editando_nome else "", 
+                               key=f"nome_{rc}")
 
-    # --- SEÇÃO DE ENDEREÇOS ---
-    st.markdown("### 📍 Configuração dos Endereços")
-    
-    if e_multi_portaria:
-        col_r, col_n = st.columns([3, 1])
-        with col_r: rua_fixa = st.text_input("Rua Principal do Condomínio", value=val_atual.get("rua_fixa", ""), key=f"rf_{rc}")
-        with col_n: num_fixo = st.text_input("Número", value=val_atual.get("num_fixo", ""), key=f"nf_{rc}")
-        
-        bloco_in = st.text_input("Bloco / Torre / Portão", placeholder="Ex: Bloco A ou Torre 2", key=f"bloco_in_{rc}")
-        
-        if st.button("➕ Adicionar Bloco/Portaria"):
-            if rua_fixa and num_fixo and bloco_in:
-                novo_end = formatar_endereco_condo(f"{rua_fixa}, {num_fixo} {bloco_in}")
-                if novo_end not in st.session_state.temp_enderecos_grupo:
-                    st.session_state.temp_enderecos_grupo.append(novo_end)
-                    st.rerun()
-            else:
-                st.error("Preencha a Rua, Número e o Bloco.")
-    else:
-        col_r, col_n = st.columns([3, 1])
-        with col_r: rua_in = st.text_input("Rua", key=f"ri_{rc}")
-        with col_n: num_in = st.text_input("Número", key=f"ni_{rc}")
-        
-        if st.button("➕ Adicionar Endereço ao Grupo"):
-            if rua_in and num_in:
-                novo_end = formatar_endereco_condo(f"{rua_in}, {num_in}")
-                if novo_end not in st.session_state.temp_enderecos_grupo:
-                    st.session_state.temp_enderecos_grupo.append(novo_end)
-                    st.rerun()
-            else:
-                st.error("Preencha Rua e Número.")
+    # --- SEÇÃO DE ADICIONAR ENDEREÇOS ---
+    st.divider()
+    st.markdown("### ➕ Adicionar Endereço ao Grupo")
+    st.info("Cadastre cada Bloco/Rua com seu próprio Bairro e Cidade para garantir o agrupamento.")
 
-    # --- LISTAGEM TEMPORÁRIA ---
+    col_r, col_n = st.columns([3, 1])
+    rua_in = col_r.text_input("Rua / Bloco (Ex: BLOCO T ou Rua Antônio Rodrigues)", key=f"ri_{rc}")
+    num_in = col_n.text_input("Nº", key=f"ni_{rc}")
+    
+    col_b, col_c, col_z = st.columns([2, 2, 1])
+    bair_in = col_b.text_input("Bairro deste endereço", key=f"bi_{rc}").upper()
+    cida_in = col_c.text_input("Cidade", value="CAMPINAS", key=f"ci_{rc}").upper()
+    cep_in = col_z.text_input("CEP", key=f"zp_{rc}")
+
+    if st.button("➕ Vincular este Endereço"):
+        if rua_in and num_in:
+            # CRIAMOS O DICIONÁRIO COMPLETO
+            novo_item = {
+                "rua": rua_in.upper().strip(),
+                "numero": num_in.upper().strip(),
+                "bairro": bair_in.strip(),
+                "cidade": cida_in.strip(),
+                "cep": cep_in.strip()
+            }
+            
+            # Evita duplicados na lista temporária
+            if not any(isinstance(d, dict) and d.get('rua') == novo_item['rua'] and d.get('numero') == novo_item['numero'] for d in st.session_state.temp_enderecos_grupo):
+                st.session_state.temp_enderecos_grupo.append(novo_item)
+                st.rerun()
+            else:
+                st.warning("Este endereço já está na lista.")
+        else:
+            st.error("Rua e Número são obrigatórios.")
+
+    # --- LISTAGEM DOS ENDEREÇOS ADICIONADOS ---
     if st.session_state.temp_enderecos_grupo:
-        st.write("**Lista de Portarias/Endereços Vinculados:**")
-        for idx, end in enumerate(st.session_state.temp_enderecos_grupo):
+        st.write("**Endereços na lista deste grupo:**")
+        for idx, item in enumerate(st.session_state.temp_enderecos_grupo):
             c1, c2 = st.columns([5, 1])
-            c1.code(end)
+            
+            # Tratamento para exibir tanto o formato novo (dict) quanto o antigo (str)
+            if isinstance(item, dict):
+                texto_exibir = f"{item.get('rua')}, {item.get('numero')} - {item.get('bairro')} ({item.get('cidade')})"
+            else:
+                texto_exibir = str(item)
+                
+            c1.code(texto_exibir)
             if c2.button("🗑️", key=f"del_temp_{idx}_{rc}"):
                 st.session_state.temp_enderecos_grupo.pop(idx)
                 st.rerun()
 
     st.divider()
 
-    portaria_final = ""
-    if not e_multi_portaria:
-        portaria_final = st.text_input("Endereço da Portaria (Waze)", value=val_atual.get("portaria", ""), key=f"port_fin_{rc}")
+    # Endereço da Portaria (Onde o Waze deve levar)
+    val_atual = db_condo.get(st.session_state.editando_nome, {}) if st.session_state.editando_nome else {}
+    portaria_final = st.text_input("📍 Endereço da Portaria (Onde o Waze deve levar no final)", 
+                                   value=val_atual.get("portaria", ""), 
+                                   key=f"port_fin_{rc}")
 
     # --- SALVAMENTO NA NUVEM ---
-    if st.button("💾 SALVAR CADASTRO", type="primary"):
-        if not nome_grupo or not st.session_state.temp_enderecos_grupo:
-            st.error("Nome e ao menos um endereço são obrigatórios.")
+    if st.button("💾 SALVAR GRUPO DE CONDOMÍNIO", type="primary"):
+        if not nome_grupo or not st.session_state.temp_enderecos_grupo or not portaria_final:
+            st.error("Nome, Endereços e Portaria são obrigatórios.")
         else:
             dados_novos = {
-                "tipo": tipo_final_string,
-                "cidade": cidade_grupo,
-                "bairro": bairro_grupo,
-                "cep": cep_grupo,
-                "enderecos": st.session_state.temp_enderecos_grupo
+                "tipo": "multi_ruas",
+                "portaria": portaria_final.upper().strip(),
+                "enderecos": st.session_state.temp_enderecos_grupo # Lista de dicionários
             }
             
-            if e_multi_portaria:
-                dados_novos["portarias"] = st.session_state.temp_enderecos_grupo
-                dados_novos["rua_fixa"] = rua_fixa
-                dados_novos["num_fixo"] = num_fixo
-            else:
-                dados_novos["portaria"] = formatar_endereco_condo(portaria_final)
-
-            # Lógica para atualizar o dicionário do banco
+            # Se mudou o nome, apaga o registro antigo
             if st.session_state.editando_nome and st.session_state.editando_nome != nome_grupo:
                 if st.session_state.editando_nome in db_condo: 
                     del db_condo[st.session_state.editando_nome]
 
             db_condo[nome_grupo] = dados_novos
             
-            # SALVA NO FIRESTORE
             if salvar_dados_fluxoderotas(db_condo, "condominios"):
                 st.session_state.editando_nome = None
                 st.session_state.temp_enderecos_grupo = []
                 st.session_state.reset_count += 1
-                st.success("Condomínio salvo na nuvem com sucesso!")
+                st.success("Grupo de condomínio salvo com sucesso!")
                 st.rerun()
             else:
                 st.error("Erro ao salvar no banco de dados.")
@@ -161,9 +133,22 @@ def exibir_listagem_condos(db_condo, rc):
         return
 
     for nome, info in db_condo.items():
-        with st.expander(f"{nome} ({info.get('bairro', 'Bairro não inf.')})"):
-            st.write(f"Tipo: {info.get('tipo')}")
-            st.code("\n".join(info.get("enderecos", [])))
+        # Tenta pegar o bairro do primeiro endereço para exibir no cabeçalho
+        primeiro_end = info.get("enderecos", [{}])[0]
+        bairro_v = primeiro_end.get("bairro", "N/A") if isinstance(primeiro_end, dict) else "Legado"
+        
+        with st.expander(f"{nome} ({bairro_v})"):
+            st.write(f"**Portaria (Waze):** {info.get('portaria')}")
+            
+            # Formata a lista para exibição
+            lista_str = []
+            for e in info.get("enderecos", []):
+                if isinstance(e, dict):
+                    lista_str.append(f"{e.get('rua')}, {e.get('numero')} - {e.get('bairro')}")
+                else:
+                    lista_str.append(str(e))
+            
+            st.code("\n".join(lista_str))
             
             c1, c2 = st.columns(2)
             if c1.button("📝 Editar", key=f"ed_{nome}_{rc}"):
@@ -177,5 +162,3 @@ def exibir_listagem_condos(db_condo, rc):
                 if salvar_dados_fluxoderotas(db_condo, "condominios"):
                     st.success("Excluído com sucesso!")
                     st.rerun()
-                else:
-                    st.error("Erro ao excluir do banco.")
