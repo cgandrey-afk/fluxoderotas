@@ -18,20 +18,20 @@ def mostrar_sidebar():
 
     if not logado and not logout_feito:
         token = cookie_manager.get(cookie="auth_fluxo")
-        if token is None:
-            time.sleep(0.5) 
-            token = cookie_manager.get(cookie="auth_fluxo")
-            
         if token:
             from funcoes import db
-            # Busca os dados do usuário do cookie para recuperar o Nível e o Nome
-            doc = db.collection("usuarios").document(token).get()
-            if doc.exists:
-                dados = doc.to_dict()
-                st.session_state.logado = True
-                st.session_state.usuario_nome = dados.get('nome')
-                st.session_state.nivel_acesso = dados.get('nivel', 'usuario')
-                st.rerun()
+            # Busca os dados do usuário para recuperar Nível e Nome
+            try:
+                doc = db.collection("usuarios").document(token).get()
+                if doc.exists:
+                    dados = doc.to_dict()
+                    st.session_state.logado = True
+                    st.session_state.usuario_nome = dados.get('nome')
+                    st.session_state.nivel_acesso = dados.get('nivel', 'usuario')
+                    st.session_state.pagina_atual = "home"
+                    st.rerun()
+            except:
+                pass
 
     with st.sidebar:
         st.title("🚚 Fluxo de Rotas")
@@ -62,8 +62,6 @@ def mostrar_sidebar():
                 st.session_state.logado = False
                 st.session_state.pagina_atual = "home"
                 cookie_manager.delete("auth_fluxo")
-                st.info("Desconectando...")
-                time.sleep(0.5)
                 st.rerun()
 
         elif st.session_state.get('mostrar_form'):
@@ -80,32 +78,37 @@ def mostrar_sidebar():
                     from funcoes import db, criptografar_senha
                     with st.spinner("Autenticando..."):
                         try:
-                            user_ref = db.collection("usuarios").document(user_email)
+                            # Limpeza total para evitar erros de teclado de celular
+                            email_limpo = user_email.lower().strip()
+                            senha_limpa = password.strip()
+                            
+                            user_ref = db.collection("usuarios").document(email_limpo)
                             doc = user_ref.get()
                             
                             if doc.exists:
                                 dados = doc.to_dict()
-                                senha_hash = criptografar_senha(password)
+                                senha_hash = criptografar_senha(senha_limpa)
                                 
                                 if senha_hash == dados.get('senha'):
-                                    # Sucesso no Login
-                                    nivel = dados.get('nivel', 'usuario')
-                                    cookie_manager.set("auth_fluxo", user_email, key="save_user")
+                                    # SALVA COOKIE PARA O CHROME LEMBRAR
+                                    cookie_manager.set("auth_fluxo", email_limpo)
                                     
                                     st.session_state.logado = True
                                     st.session_state.usuario_nome = dados.get('nome')
-                                    st.session_state.nivel_acesso = nivel
+                                    st.session_state.nivel_acesso = dados.get('nivel', 'usuario')
                                     st.session_state.mostrar_form = False
-                                    st.session_state.logout_feito = False                                    
-                                    st.success(f"Bem-vindo, {dados.get('nome')}!")
+                                    st.session_state.logout_feito = False
+                                    st.session_state.pagina_atual = "home"
+                                    
+                                    st.success(f"Bem-vindo!")
                                     time.sleep(0.5)
                                     st.rerun()
                                 else:
-                                    st.error("E-mail ou Senha incorretas.")
+                                    st.error("Senha incorreta.")
                             else:
-                                st.error("E-mail ou Senha incorretas.")
+                                st.error("Usuário não encontrado.")
                         except Exception as e:
-                            st.error("Erro ao conectar ao banco.")
+                            st.error(f"Erro de conexão.")
 
             if st.button("⬅️ Voltar"):
                 st.session_state.mostrar_form = False
@@ -129,8 +132,6 @@ def mostrar_sidebar():
             menu = "🏠 Início"
 
         st.divider()
-        st.write("🔧 **Preferências**")
-        st.toggle("Modo Alta Precisão", key="toggle_precisao")
         st.caption("Versão 5.6.0 - Campinas/SP")
         
     return menu
