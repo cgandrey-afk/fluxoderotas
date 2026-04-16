@@ -7,25 +7,21 @@ from datetime import timedelta
 def mostrar_sidebar():
     cookie_manager = stx.CookieManager(key="cookie_manager_andrey")
 
-    # --- NOVO SPLASH RESISTENTE AO F5 ---
-    if not st.session_state.get('logado'):
+    # --- 1. INICIALIZAÇÃO DE SEGURANÇA ---
+    # Se a página acabou de ser atualizada (F5), garantimos que as travas existam
+    if "logout_feito" not in st.session_state:
+        st.session_state.logout_feito = False
+
+    # --- 2. TELA DE SPLASH (Só roda se NÃO houver intenção de logout) ---
+    # Se o cara não está logado na memória E não acabou de clicar em sair
+    if not st.session_state.get('logado') and not st.session_state.logout_feito:
         placeholder_loading = st.empty()
         
-        # O HTML abaixo garante que a tela não fique "preta" ou vazia
+        # Mostra o carregamento enquanto tenta ler o cookie
         with placeholder_loading.container():
-            st.markdown("""
-                <div style='height: 80vh; display: flex; flex-direction: column; align-items: center; justify-content: center;'>
-                    <h2 style='color: #ff4b4b; margin-bottom: 10px;'>🚚 Fluxo de Rotas</h2>
-                    <div style='border: 4px solid #f3f3f3; border-top: 4px solid #ff4b4b; border-radius: 50%; width: 30px; height: 30px; animation: spin 1s linear infinite;'></div>
-                    <p style='margin-top: 15px; color: #666;'>Sincronizando com a nuvem...</p>
-                    <style>
-                        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-                    </style>
-                </div>
-            """, unsafe_allow_html=True)
+            st.markdown("<h3 style='text-align:center;'>🚚 Sincronizando...</h3>", unsafe_allow_html=True)
 
-        # Loop de verificação
-        for tentativa in range(4): # Aumentei para 4 para dar mais margem no F5
+        for tentativa in range(4):
             token = cookie_manager.get(cookie="auth_fluxo")
             if token:
                 from funcoes import db
@@ -38,13 +34,11 @@ def mostrar_sidebar():
                         st.session_state.nivel_acesso = dados.get('nivel', 'usuario')
                         st.session_state.pagina_atual = "home"
                         placeholder_loading.empty()
-                        st.rerun()
-                        break 
+                        st.rerun() # Loga e para tudo
                 except:
                     pass
-            time.sleep(0.5) 
-
-        # Se após as tentativas não logar, limpa o splash para mostrar os botões de login
+            time.sleep(0.5)
+        
         placeholder_loading.empty()
 
     # --- LÓGICA DE RESET NO F5 ---
@@ -80,26 +74,18 @@ def mostrar_sidebar():
             status_logout = st.empty()
 
             if st.button("Sair da Conta", use_container_width=True):
-                # 1. FEEDBACK VISUAL IMEDIATO (Para o celular não parecer travado)
-                status_logout.markdown("""
-                    <div style='text-align: center; padding: 10px; background-color: #ffebee; border-radius: 5px;'>
-                        <p style='color: #c62828; margin: 0; font-weight: bold;'>Encerrando sessão...</p>
-                    </div>
-                """, unsafe_allow_html=True)
-                
-                # 2. Limpa a memória interna
+                # 1. Marca o logout na memória IMEDIATAMENTE
                 st.session_state.logado = False
-                st.session_state.usuario_nome = None
                 st.session_state.logout_feito = True
-                st.session_state.pagina_atual = "home"
                 
-                # 3. Deleta o cookie
+                # 2. Manda deletar o cookie
                 cookie_manager.delete("auth_fluxo")
                 
-                # 4. Espera o tempo necessário para o Chrome processar
-                time.sleep(1.2)
+                # 3. Dá um aviso visual rápido
+                st.toast("Saindo...", icon="👋")
                 
-                # 5. Força a atualização final
+                # 4. Espera um pouco e RERUN
+                time.sleep(0.8)
                 st.rerun()
 
         elif st.session_state.get('mostrar_form'):
