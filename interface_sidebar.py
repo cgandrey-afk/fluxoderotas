@@ -136,6 +136,7 @@ def mostrar_sidebar():
             st.info("Acesse sua conta para sincronizar dados.")
             if st.button("🔑 Fazer Login", type="primary", use_container_width=True):
                 st.session_state.mostrar_form = True
+                st.session_state.pagina_atual = "home"
                 st.rerun()
 
             if st.button("📝 Criar Conta", use_container_width=True):
