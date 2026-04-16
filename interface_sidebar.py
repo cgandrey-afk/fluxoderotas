@@ -5,35 +5,53 @@ import datetime
 from datetime import timedelta
 
 def mostrar_sidebar():
-    # 1. Inicializa o gerenciador de cookies
     cookie_manager = stx.CookieManager(key="cookie_manager_andrey")
+
+    # --- NOVO SPLASH RESISTENTE AO F5 ---
+    if not st.session_state.get('logado'):
+        placeholder_loading = st.empty()
+        
+        # O HTML abaixo garante que a tela não fique "preta" ou vazia
+        with placeholder_loading.container():
+            st.markdown("""
+                <div style='height: 80vh; display: flex; flex-direction: column; align-items: center; justify-content: center;'>
+                    <h2 style='color: #ff4b4b; margin-bottom: 10px;'>🚚 Fluxo de Rotas</h2>
+                    <div style='border: 4px solid #f3f3f3; border-top: 4px solid #ff4b4b; border-radius: 50%; width: 30px; height: 30px; animation: spin 1s linear infinite;'></div>
+                    <p style='margin-top: 15px; color: #666;'>Sincronizando com a nuvem...</p>
+                    <style>
+                        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+                    </style>
+                </div>
+            """, unsafe_allow_html=True)
+
+        # Loop de verificação
+        for tentativa in range(4): # Aumentei para 4 para dar mais margem no F5
+            token = cookie_manager.get(cookie="auth_fluxo")
+            if token:
+                from funcoes import db
+                try:
+                    doc = db.collection("usuarios").document(token).get()
+                    if doc.exists:
+                        dados = doc.to_dict()
+                        st.session_state.logado = True
+                        st.session_state.usuario_nome = dados.get('nome')
+                        st.session_state.nivel_acesso = dados.get('nivel', 'usuario')
+                        st.session_state.pagina_atual = "home"
+                        placeholder_loading.empty()
+                        st.rerun()
+                        break 
+                except:
+                    pass
+            time.sleep(0.5) 
+
+        # Se após as tentativas não logar, limpa o splash para mostrar os botões de login
+        placeholder_loading.empty()
 
     # --- LÓGICA DE RESET NO F5 ---
     if "carregamento_limpo" not in st.session_state:
         st.session_state.mostrar_form = False
         st.session_state.logout_feito = False
         st.session_state.carregamento_limpo = True
-
-    # --- 2. RECUPERAÇÃO AUTOMÁTICA (COOKIE) ---
-    logado = st.session_state.get('logado', False)
-    logout_feito = st.session_state.get('logout_feito', False)
-
-    if not logado and not logout_feito:
-        token = cookie_manager.get(cookie="auth_fluxo")
-        if token:
-            from funcoes import db
-            # Busca os dados do usuário para recuperar Nível e Nome
-            try:
-                doc = db.collection("usuarios").document(token).get()
-                if doc.exists:
-                    dados = doc.to_dict()
-                    st.session_state.logado = True
-                    st.session_state.usuario_nome = dados.get('nome')
-                    st.session_state.nivel_acesso = dados.get('nivel', 'usuario')
-                    st.session_state.pagina_atual = "home"
-                    st.rerun()
-            except:
-                pass
 
     with st.sidebar:
         st.title("🚚 Fluxo de Rotas")
@@ -56,78 +74,54 @@ def mostrar_sidebar():
             """, unsafe_allow_html=True)
 
             menu = st.radio("Navegação", ["🏠 Início", "📝 Gerenciar Notas", "🏢 Condomínios"])
-            
             st.divider()
             
             if st.button("Sair da Conta", use_container_width=True):
-                # 1. Primeiro limpamos a memória imediata
                 st.session_state.logado = False
-                st.session_state.usuario_nome = None
-                st.session_state.logout_feito = True  # <--- IMPORTANTE
+                st.session_state.logout_feito = True 
                 st.session_state.pagina_atual = "home"
-                
-                # 2. Comando para o navegador DELETAR o cookie
                 cookie_manager.delete("auth_fluxo")
-                
-                st.info("Desconectando com segurança...")
-                
-                # 3. O Pulo do Gato: Esperar o Chrome do celular processar a exclusão
+                st.info("Desconectando...")
                 time.sleep(1.5) 
-                
-                # 4. Recarrega a página já sem o cookie
                 st.rerun()
 
         elif st.session_state.get('mostrar_form'):
-            # --- INTERFACE FORMULÁRIO DE LOGIN ---
+            # --- FORMULÁRIO DE LOGIN ---
             st.markdown("### 🔐 Entrar na Conta")
-            id_f = st.session_state.get('id_sessao', 'fixo')
-
-            with st.form(key=f"form_login_{id_f}"):
+            with st.form(key="form_login_final"):
                 user_email = st.text_input("E-mail").lower().strip()
                 password = st.text_input("Senha", type="password")
                 submit = st.form_submit_button("ENTRAR", use_container_width=True)
                 
                 if submit:
                     from funcoes import db, criptografar_senha
-                    # 1. LIMPEZA DOS INPUTS
                     email_limpo = user_email.lower().strip()
                     senha_limpa = password.strip()
-
                     try:
                         user_ref = db.collection("usuarios").document(email_limpo)
                         doc = user_ref.get()
-                        
                         if doc.exists:
                             dados = doc.to_dict()
-                            senha_hash = criptografar_senha(senha_limpa)
-                            
-                            if senha_hash == dados.get('senha'):
-                                # --- ORDEM DE EXECUÇÃO CORRIGIDA ---
-                                
-                                # Primeiro: Define o Cookie (Damos prioridade para a gravação física)
+                            if criptografar_senha(senha_limpa) == dados.get('senha'):
+                                # Grava Cookie e Sessão
                                 validade = datetime.datetime.now() + datetime.timedelta(days=30)
                                 cookie_manager.set("auth_fluxo", email_limpo, expires_at=validade)
                                 
-                                # Segundo: Define a sessão na memória
                                 st.session_state.logado = True
                                 st.session_state.usuario_nome = dados.get('nome')
                                 st.session_state.nivel_acesso = dados.get('nivel', 'usuario')
                                 st.session_state.mostrar_form = False
                                 st.session_state.pagina_atual = "home"
                                 
-                                st.success("✅ Autenticado com sucesso!")
-                                
-                                # Terceiro: Um tempo maior de espera ANTES do rerun
-                                # Isso evita que o rerun interrompa a gravação do cookie
-                                time.sleep(1.5) 
+                                st.success("✅ Autenticado!")
+                                time.sleep(1.5)
                                 st.rerun()
                             else:
                                 st.error("Senha incorreta.")
                         else:
                             st.error("Usuário não encontrado.")
                     except Exception as e:
-                        # Se der erro aqui, vamos ver o que é exatamente
-                        st.error(f"Aviso técnico: {e}")
+                        st.error(f"Erro técnico: {e}")
 
             if st.button("⬅️ Voltar"):
                 st.session_state.mostrar_form = False
@@ -137,17 +131,13 @@ def mostrar_sidebar():
         else:
             # --- INTERFACE DESLOGADO ---
             st.info("Acesse sua conta para sincronizar dados.")
-            id_btn = st.session_state.get('id_sessao', 'fixo')
-            
-            if st.button("🔑 Fazer Login", type="primary", use_container_width=True, key=f"btn_login_{id_btn}"):
+            if st.button("🔑 Fazer Login", type="primary", use_container_width=True):
                 st.session_state.mostrar_form = True
-                st.session_state.pagina_atual = "home"
                 st.rerun()
 
-            if st.button("📝 Criar Conta", use_container_width=True, key=f"btn_criar_{id_btn}"):
+            if st.button("📝 Criar Conta", use_container_width=True):
                 st.session_state.pagina_atual = "cadastro"
                 st.rerun()
-                
             menu = "🏠 Início"
 
         st.divider()
