@@ -10,3 +10,4 @@ streamlit-cookies-manager
 extra-streamlit-components
 streamlit-folium
 folium
+locust-plugins
