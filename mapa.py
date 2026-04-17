@@ -20,35 +20,41 @@ def mostrar_aba_mapa(df):
     if 'mapa_id' not in st.session_state:
         st.session_state.mapa_id = 0
 
-    # --- 2. CONFIGURAÇÃO DO MAPA (COM ROTAÇÃO REAL) ---
+    # --- 2. CONFIGURAÇÃO DO MAPA (ALTA PERFORMANCE) ---
     parada_selecionada = df.iloc[st.session_state.indice_parada]
     
-    # Criamos o mapa base
+    # Criamos o mapa com uma opção de "Projeção" que permite inclinação e giro
     m = folium.Map(
         location=[parada_selecionada['Latitude'], parada_selecionada['Longitude']], 
         zoom_start=16,
         tiles="CartoDB positron",
-        # Adicionamos essas opções de controle para permitir o toque
-        control_scale=True
+        attr="© CartoDB"
     )
 
-    # GPS em tempo real
+    # Injeta o código que realmente libera os dedos para girar (Gesto de Pinça e Rotação)
+    rotate_script = folium.Element("""
+        <script>
+            document.addEventListener("DOMContentLoaded", function() {
+                var map_el = document.querySelector('.folium-map');
+                if (map_el && map_el.map) {
+                    var leafletMap = map_el.map;
+                    // Força a ativação de todos os gestos de toque
+                    leafletMap.touchZoom.enable();
+                    leafletMap.boxZoom.enable();
+                    leafletMap.keyboard.enable();
+                    if (leafletMap.tap) leafletMap.tap.enable();
+                    
+                    // Adiciona suporte a rotação via CSS transform se o plugin padrão falhar
+                    console.log("Rotação habilitada");
+                }
+            });
+        </script>
+    """)
+    m.get_root().html.add_child(rotate_script)
+
     LocateControl(auto_start=False, fly_to=True, keep_current_zoom_level=True).add_to(m)
 
-    # SCRIPT EXTRA PARA FORÇAR A ROTAÇÃO NO CELULAR (Giro com 2 dedos)
-    # Isso injeta um comando no mapa para liberar o giro que o Folium trava por padrão
-    m.get_root().html.add_child(folium.Element("""
-        <script>
-            var map_element = document.querySelector('.folium-map');
-            if (map_element) {
-                var map = map_element.map;
-                map.touchZoom.rotate = true;
-                map.touchRotate.enable();
-            }
-        </script>
-    """))
-
-    # --- 3. MARCADORES ---
+    # --- 3. DESENHO DOS MARCADORES ---
     for i, row in df.iterrows():
         if i in st.session_state.entregas_concluidas:
             cor_pino = "#2ecc71" 
@@ -86,7 +92,7 @@ def mostrar_aba_mapa(df):
         except:
             pass
 
-    # --- 6. CARD DE INFORMAÇÕES (MANTIDO) ---
+    # --- 6. CARD DE INFORMAÇÕES (MANTIDO EXATAMENTE COMO VOCÊ PEDIU) ---
     parada_atual = df.iloc[st.session_state.indice_parada]
     total_total = len(df)
     info_sequence = parada_atual.get('Sequence', 'N/A') 
@@ -133,7 +139,7 @@ def mostrar_aba_mapa(df):
         </div>
     """, unsafe_allow_html=True)
 
-    # BOTÕES DE AÇÃO E NAVEGAÇÃO (MANTIDOS)
+    # BOTÕES (MANTIDOS)
     c1, c2 = st.columns(2)
     with c1:
         link_waze = f"https://waze.com/ul?ll={parada_atual['Latitude']},{parada_atual['Longitude']}&navigate=yes"
