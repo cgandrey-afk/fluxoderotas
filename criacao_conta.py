@@ -5,52 +5,7 @@ from datetime import datetime
 from funcoes import verificar_email_existente, criar_novo_usuario, db
 
 def mostrar_tela_cadastro():
-    st.markdown("""
-        <style>
-            /* 1. Estilo Geral do Formulário */
-            .stForm {
-                
-                padding: 20px;
-                border-radius: 15px;
-                border: 1px solid #dee2e6;
-            }
-
-            /* 2. FORÇAR COR PRETA EM QUALQUER TEXTO DE AVISO (Warning/Amarelo) */
-            /* Tentamos pegar por todos os caminhos possíveis que o Streamlit usa */
-            div[data-testid="stNotification"] {
-                border: 1px solid #ccc;
-            }
-            
-            /* Se a caixa for amarela (Warning) */
-            div[data-baseweb="notification"] {
-                color: black !important;
-            }
-
-            /* Seletor específico para o parágrafo e o texto interno */
-            div[data-testid="stNotification"] p, 
-            div[data-testid="stNotification"] div,
-            div[data-testid="stNotification"] span {
-                color: black !important;
-                font-weight: bold;
-                text-align: center;
-            }
-
-            /* 3. Se for ERRO (Vermelho), forçamos BRANCO para contraste */
-            /* O Streamlit usa classes específicas para o tipo, mas vamos pelo 'Error' */
-            div[data-testid="stNotification"]:has(svg[aria-label="Error"]) p,
-            div[data-testid="stNotification"]:has(svg[aria-label="Error"]) div {
-                color: white !important;
-            }
-
-            /* 4. Título */
-            .titulo-cadastro {
-                text-align: center;
-                color: #007bff;
-                margin-bottom: 20px;
-            }
-        </style>
-    """, unsafe_allow_html=True)
-
+   
     col1, col2, col3 = st.columns([0.1, 0.8, 0.1])
 
     with col2:
