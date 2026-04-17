@@ -90,7 +90,7 @@ def mostrar_sidebar():
                 </div>
             """, unsafe_allow_html=True)
 
-            menu = st.radio("Navegação", ["🏠 Início", "📝 Gerenciar Notas", "🏢 Condomínios"])
+            menu = st.radio("Navegação", ["🏠 Início", "📝 Gerenciar Notas", "🏢 Condomínios", "📍 Mapa"])
             st.divider()
             
             # Criamos um espaço vazio para mensagens de status da sidebar

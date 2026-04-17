@@ -6,6 +6,7 @@ from interface_sidebar import mostrar_sidebar
 from interface_condos import mostrar_aba_condos
 from interface_notas import mostrar_aba_notas
 from funcoes import verificar_sessao_ativa
+from mapa import mostrar_aba_mapa
 
 # --- 1. CONFIGURAÇÃO DA PÁGINA ---
 st.set_page_config(
@@ -19,6 +20,7 @@ st.set_page_config(
 # Chamamos a sidebar primeiro para que o Splash de Sincronização valide a fila
 aba_selecionada = mostrar_sidebar()
 verificar_sessao_ativa()
+
 
 
 # --- 3. TRAVA DE SEGURANÇA PARA FILA DE APARELHOS ---
@@ -69,6 +71,7 @@ else:
                         db_condos = carregar_dados_fluxoderotas("condominios") if st.session_state.get('logado') else {}
                         
                         df_f = processar_agrupamento(df_temp, notas_vivas, db_condos)
+                        st.session_state.ultimo_df_processado = df_f
 
                         cols_final = ['Sequence', 'Destination Address', 'Bairro', 'City', 'Zipcode/Postal code', 'Latitude', 'Longitude']
                         st.success("✅ Processamento concluído!")
@@ -97,5 +100,14 @@ else:
     elif aba_selecionada == "🏢 Condomínios":
         if st.session_state.get('logado'):
             mostrar_aba_condos()
+        else:
+            st.error("### 🔒 Acesso Negado")
+            
+    # ABA 4: MAPA (Adicione essa lógica)
+    elif aba_selecionada == "📍 Mapa":
+        if st.session_state.get('logado'):
+            # Verifique se o dataframe processado existe no session_state
+            df_para_mapa = st.session_state.get('ultimo_df_processado')
+            mostrar_aba_mapa(df_para_mapa)
         else:
             st.error("### 🔒 Acesso Negado")
