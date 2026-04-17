@@ -9,6 +9,7 @@ import re
 import streamlit as st
 from google.cloud import firestore
 from google.oauth2 import service_account
+from google.cloud.firestore import ArrayRemove, ArrayUnion
 
 
 import hashlib
@@ -621,6 +622,35 @@ def processar_agrupamento(df_bruto, notas_vivas, db_condos):
     return df_agrupado
 
 
+
+def verificar_sessao_ativa():
+    if st.session_state.get('logado'):
+        from funcoes import db
+        import time
+        
+        email = st.session_state.get('usuario_email')
+        cookie_manager = st.session_state.cookie_manager
+        id_atual = cookie_manager.get("auth_session_id")
+        
+        try:
+            doc = db.collection("usuarios").document(email).get()
+            if doc.exists:
+                sessoes = doc.to_dict().get('sessoes_ativas', [])
+                
+                if id_atual not in sessoes:
+                    # --- AQUI ESTÁ O AJUSTE ---
+                    # Antes de deletar, verificamos se ele existe para não dar KeyError
+                    if cookie_manager.get("auth_fluxo"):
+                        cookie_manager.delete("auth_fluxo")
+                    
+                    st.session_state.logado = False
+                    st.error("Sessão encerrada: Login realizado em outro dispositivo.")
+                    time.sleep(2)
+                    st.rerun()
+        except Exception as e:
+            # Se der erro no Firebase ou qualquer outra coisa, 
+            # não deixamos o app travar a tela inteira
+            print(f"Erro na verificação de sessão: {e}")
 
 
 #-----------------------------------
