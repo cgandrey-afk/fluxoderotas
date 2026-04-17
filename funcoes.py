@@ -650,7 +650,7 @@ def verificar_sessao_ativa():
         except Exception as e:
             # Se der erro no Firebase ou qualquer outra coisa, 
             # não deixamos o app travar a tela inteira
-            print(f"Erro na verificação de sessão: {e}")
+            print(f"Erro na verificação de sessão: TESTE TESTE TESTE {e}")
 
 
 #-----------------------------------
