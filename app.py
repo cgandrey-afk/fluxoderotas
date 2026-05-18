@@ -2,21 +2,19 @@ import streamlit as st
 import os
 import re
 
-# --- 1. CONFIGURAÇÃO DA PÁGINA ---
-st.set_page_config(
-    page_title="Fluxo de Rotas - Download",
-    initial_sidebar_state="collapsed", 
-    layout="centered",
-    page_icon="🚚"
-)
-
-# Estilização CSS personalizada com ajustes responsivos para celular
+# Estilização CSS personalizada para mover todo o conteúdo para o topo
 st.markdown("""
     <style>
         /* Remove menus e elementos padrões do Streamlit */
         #MainMenu {visibility: hidden;}
         footer {visibility: hidden;}
         header {visibility: hidden;}
+        
+        /* Força todo o conteúdo do Streamlit a começar no topo absoluto da página */
+        .block-container {
+            padding-top: 1rem !important;
+            padding-bottom: 1rem !important;
+        }
         
         /* 1. BARRA DE MENU SUPERIOR */
         .navbar-placeholder {
@@ -25,7 +23,8 @@ st.markdown("""
             height: 50px;
             border-radius: 12px;
             box-shadow: 0 4px 15px rgba(0,0,0,0.1);
-            margin-bottom: 30px; /* Margem padrão para computador */
+            margin-top: 0px;    /* Zera folga superior */
+            margin-bottom: 20px; /* Reduzido para aproximar da logo no PC */
             display: flex;
             align-items: center;
             justify-content: center;
@@ -40,7 +39,7 @@ st.markdown("""
         /* 2. CONTAINER PRINCIPAL DO APP */
         .main-container {
             text-align: center;
-            padding: 10px;
+            padding: 5px;
             margin-top: 0px;
         }
         
@@ -53,32 +52,35 @@ st.markdown("""
             font-size: 14px;
             font-weight: bold;
             display: inline-block;
-            margin-bottom: 15px; /* Reduzido de 25px para 15px */
+            margin-bottom: 12px; 
         }
         
         /* Ajuste fino do subtítulo */
         .subtitle {
             color: #9aa0a6;
             font-size: 16px;
-            margin-bottom: 25px;
+            margin-bottom: 20px;
         }
 
         /* =======================================================
            REGRAS EXCLUSIVAS PARA CELULAR (Telas de até 768px)
            ======================================================= */
         @media (max-width: 768px) {
+            .block-container {
+                padding-top: 0.5rem !important; /* Encosta quase no topo da tela do celular */
+            }
             .navbar-placeholder {
-                margin-bottom: 15px; /* Corta o espaço do menu pela metade no celular */
-                height: 45px;
+                margin-bottom: 10px; /* Colou o menu na logo */
+                height: 42px;
             }
             .main-container {
-                padding: 0px; /* Remove paddings desnecessários no celular */
+                padding: 0px;
             }
             .version-tag {
-                margin-bottom: 10px; /* Deixa o texto de versão mais colado no título */
+                margin-bottom: 8px; /* Colou a versão no título */
             }
             .subtitle {
-                margin-bottom: 15px; /* Aproxima o texto do botão de download */
+                margin-bottom: 12px; /* Colou o texto explicativo no botão */
             }
         }
     </style>
