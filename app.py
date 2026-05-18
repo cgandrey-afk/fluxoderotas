@@ -25,7 +25,7 @@ st.markdown("""
             height: 50px;
             border-radius: 12px;
             box-shadow: 0 4px 15px rgba(0,0,0,0.1);
-            margin-bottom: 5px; /* Afasta o menu do logo */
+            margin-bottom: 150px; /* Afasta o menu do logo */
             display: flex;
             align-items: center;
             justify-content: center;
