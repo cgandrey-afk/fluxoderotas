@@ -1,113 +1,129 @@
 import streamlit as st
-import pandas as pd
-from datetime import datetime
-from funcoes import carregar_dados_fluxoderotas, processar_agrupamento
-from interface_sidebar import mostrar_sidebar
-from interface_condos import mostrar_aba_condos
-from interface_notas import mostrar_aba_notas
-from funcoes import verificar_sessao_ativa
-from mapa import mostrar_aba_mapa
+import requests
+import re
 
 # --- 1. CONFIGURAÇÃO DA PÁGINA ---
 st.set_page_config(
-    page_title="Fluxo de Rotas - Campinas",
+    page_title="Fluxo de Rotas - Download",
     initial_sidebar_state="collapsed", 
-    layout="wide",
+    layout="centered",
     page_icon="🚚"
 )
 
-# --- 2. INTERFACE LATERAL (CHAMADA PRINCIPAL) ---
-# Chamamos a sidebar primeiro para que o Splash de Sincronização valide a fila
-aba_selecionada = mostrar_sidebar()
-verificar_sessao_ativa()
+# Estilização CSS personalizada para um visual moderno e limpo
+st.markdown("""
+    <style>
+        /* Remove menus padrões do Streamlit */
+        #MainMenu {visibility: hidden;}
+        footer {visibility: hidden;}
+        header {visibility: hidden;}
+        
+        /* Centralização e container principal */
+        .main-container {
+            text-align: center;
+            padding: 30px;
+            border-radius: 20px;
+            background: #ffffff;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.05);
+            margin-top: 20px;
+        }
+        
+        /* Estilo do texto de versão */
+        .version-tag {
+            background-color: #e3f2fd;
+            color: #0d47a1;
+            padding: 6px 16px;
+            border-radius: 50px;
+            font-size: 14px;
+            font-weight: bold;
+            display: inline-block;
+            margin-bottom: 25px;
+        }
+        
+        /* Ajuste fino do subtítulo */
+        .subtitle {
+            color: #5f6368;
+            font-size: 16px;
+            margin-bottom: 30px;
+        }
+    </style>
+""", unsafe_allow_html=True)
 
+# --- CONFIGURAÇÕES DO GITHUB ---
+# Substitua pelos dados do seu repositório
+USUARIO_GITHUB = "SEU_USUARIO_AQUI"
+REPOSITORIO_GITHUB = "SEU_REPOSITORIO_AQUI"
 
-
-# --- 3. TRAVA DE SEGURANÇA PARA FILA DE APARELHOS ---
-# Se o ID da sessão foi expulso (pelo 3º login), a sidebar vai deslogar o state.
-# Esta trava impede que o resto do script rode se o login não for válido.
-if not st.session_state.get('logado') and aba_selecionada not in ["🏠 Início", None]:
-    st.warning("⚠️ Sua sessão expirou ou você foi conectado em outro dispositivo.")
-    st.stop()
-
-# --- 4. BANNERS INFORMATIVOS ---
-if not st.session_state.get('logado'):
-    st.markdown("""
-        <div style="background: linear-gradient(90deg, #ff4b4b 0%, #ff8585 100%); padding: 10px 20px; border-radius: 12px; color: white; display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); border-left: 4px solid #fff;">
-            <div style="flex: 1; text-align: left;">
-                <h2 style='margin: 0; font-size: 17px;'>🚀 Desbloqueie o Poder Total!</h2>
-                <p style='margin: 0; font-size: 13px; opacity: 0.9;'>Sincronize <b>Notas</b> e <b>Condomínios</b> na nuvem via menu lateral.</p>
-            </div>
-            <div style="margin-left: 15px;">
-                <span style='background: rgba(255, 255, 255, 0.2); color: white; padding: 5px 12px; border-radius: 10px; border: 1px solid white; font-weight: bold; font-size: 11px; text-transform: uppercase; white-space: nowrap;'>⬅️ ACESSE O MENU LATERAL</span>
-            </div>
-        </div>
-    """, unsafe_allow_html=True)
-else:
-    st.markdown("""
-        <div style="text-align: right; margin-bottom: 5px;">
-            <span style="color: #28a745; font-size: 11px; font-weight: bold;">✅ Sincronização Ativa (Dispositivo Autorizado)</span>
-        </div>
-    """, unsafe_allow_html=True)
-
-# --- 5. NAVEGAÇÃO ---
-if st.session_state.get("pagina_atual") == "cadastro":
-    from manutencao import mostrar_tela_manutencao 
-    mostrar_tela_manutencao()
-else:
-    # ABA 1: INÍCIO    
-    if aba_selecionada == "🏠 Início" or aba_selecionada is None:
-        st.title("🚀 Processamento de Rotas")
-        arquivo = st.file_uploader("1. Carregar Planilha da Shopee", type=['xlsx', 'csv'], key="up_v5")
-
-        if arquivo:
-            try:
-                df_temp = pd.read_csv(arquivo, sep=None, engine='python') if arquivo.name.endswith('.csv') else pd.read_excel(arquivo)
-                
-                if st.button("🚀 Processar e Agrupar AGORA", type="primary", use_container_width=True):
-                    with st.spinner("Otimizando rotas..."):
-                        # Se estiver logado, busca da nuvem. Se não, usa dicionário vazio.
-                        notas_vivas = carregar_dados_fluxoderotas("observacoes") if st.session_state.get('logado') else {}
-                        db_condos = carregar_dados_fluxoderotas("condominios") if st.session_state.get('logado') else {}
-                        
-                        df_f = processar_agrupamento(df_temp, notas_vivas, db_condos)
-                        st.session_state.ultimo_df_processado = df_f
-
-                        cols_final = ['Sequence', 'Destination Address', 'Bairro', 'City', 'Zipcode/Postal code', 'Latitude', 'Longitude']
-                        st.success("✅ Processamento concluído!")
-                        st.dataframe(df_f[cols_final], use_container_width=True)
-
-                        csv = df_f[cols_final].to_csv(index=False).encode('utf-8-sig')
-                        st.download_button(
-                            label="📥 Baixar Planilha para Roteirizador",
-                            data=csv,
-                            file_name=f"Entregas_{datetime.now().strftime('%d-%m-%Y')}.csv",
-                            mime="text/csv",
-                            use_container_width=True
-                        )                        
-            except Exception as e:
-                st.error(f"Erro ao ler arquivo: {e}")
-                
-
-    # ABA 2: NOTAS
-    elif aba_selecionada == "📝 Gerenciar Notas":
-        if st.session_state.get('logado'):            
-            mostrar_aba_notas()            
-        else:
-            st.error("### 🔒 Acesso Negado")
-
-    # ABA 3: CONDOMÍNIOS
-    elif aba_selecionada == "🏢 Condomínios":
-        if st.session_state.get('logado'):
-            mostrar_aba_condos()
-        else:
-            st.error("### 🔒 Acesso Negado")
+# --- 2. FUNÇÃO PARA BUSCAR O APK MAIS RECENTE ---
+@st.cache_data(ttl=300)  # Guarda o resultado por 5 minutos para evitar lentidão
+def buscar_apk_recente(usuario, repositorio):
+    url = f"https://api.github.com/repos/{usuario}/{repositorio}/contents/"
+    try:
+        response = requests.get(url)
+        if response.status_code == 200:
+            arquivos = response.json()
             
-    # ABA 4: MAPA (Adicione essa lógica)
-    elif aba_selecionada == "📍 Mapa":
-        if st.session_state.get('logado'):
-            # Verifique se o dataframe processado existe no session_state
-            df_para_mapa = st.session_state.get('ultimo_df_processado')
-            mostrar_aba_mapa(df_para_mapa)
-        else:
-            st.error("### 🔒 Acesso Negado")
+            # Padrão para encontrar: app-release_X.XX.apk
+            padrao = re.compile(r"app-release_(\d+\.\d+)\.apk")
+            apks_encontrados = []
+            
+            for arq in arquivos:
+                match = padrao.match(arq['name'])
+                if match:
+                    # Salva uma tupla (versão transformando string em float, nome do arquivo, url_download)
+                    versao_str = match.group(1)
+                    apks_encontrados.append((float(versao_str), versao_str, arq['name'], arq['download_url']))
+            
+            if apks_encontrados:
+                # Ordena pela versão mais alta
+                apks_encontrados.sort(key=lambda x: x[0], reverse=True)
+                return apks_encontrados[0] # Retorna o mais recente
+    except Exception as e:
+        pass
+    return None
+
+# --- 3. INTERFACE VISUAL ---
+
+# Container principal em HTML para simular um card de aplicativo
+st.markdown('<div class="main-container">', unsafe_allow_html=True)
+
+# Centralizando a logo e o título usando colunas do Streamlit
+col1, col2, col3 = st.columns([1, 2, 1])
+with col2:
+    # Exibe a logo vinda do seu repositório (substitua pela sua URL final se necessário)
+    url_logo = f"https://raw.githubusercontent.com/{USUARIO_GITHUB}/{REPOSITORIO_GITHUB}/main/LogoDoApp.png"
+    st.image(url_logo, use_container_width=True)
+
+st.markdown("<h1 style='text-align: center; margin-bottom: 5px;'>Fluxo de Rotas</h1>", unsafe_allow_html=True)
+
+# Executa a busca do arquivo no GitHub
+dados_apk = buscar_apk_recente(USUARIO_GITHUB, REPOSITORIO_GITHUB)
+
+if dados_apk:
+    _, versao_texto, nome_arquivo, url_download = dados_apk
+    
+    # Exibe a versão atualizada dinamicamente
+    st.markdown(f'<div style="text-align: center;"><span class="version-tag">Versão Atual: v{versao_texto}</span></div>', unsafe_allow_html=True)
+    st.markdown('<p class="subtitle">Otimize suas entregas e gerencie seus condomínios direto do celular.</p>', unsafe_allow_html=True)
+    
+    # Botão de download nativo do Streamlit direcionando para o link do GitHub
+    st.link_button(
+        "📥 Baixar Aplicativo (APK)",
+        url_download,
+        type="primary",
+        use_container_width=True
+    )
+else:
+    # Caso o arquivo não seja encontrado ou ocorra erro de credenciais
+    st.markdown(f'<div style="text-align: center;"><span class="version-tag" style="background-color: #ffebee; color: #c62828;">⚠️ APK não localizado</span></div>', unsafe_allow_html=True)
+    st.info("Verifique se as configurações de usuário e repositório do GitHub estão corretas no código e se o arquivo segue o padrão de nome.")
+
+st.markdown('</div>', unsafe_allow_html=True)
+
+# --- 4. RODAPÉ INFORMATIVO ---
+st.markdown("""
+    <div style="text-align: center; margin-top: 40px; color: #a0a0a0; font-size: 12px;">
+        Desenvolvido para otimização de rotas logísticas.<br>
+        Campinas • São Paulo
+    </div>
+""", unsafe_allow_html=True)
