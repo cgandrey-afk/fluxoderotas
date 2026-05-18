@@ -10,22 +10,40 @@ st.set_page_config(
     page_icon="🚚"
 )
 
-# Estilização CSS personalizada para um visual moderno e limpo
+# Estilização CSS personalizada para o novo layout com Menu Superior
 st.markdown("""
     <style>
-        /* Remove menus padrões do Streamlit */
+        /* Remove menus e elementos padrões do Streamlit */
         #MainMenu {visibility: hidden;}
         footer {visibility: hidden;}
         header {visibility: hidden;}
         
-        /* Centralização e container principal */
+        /* 1. BARRA DE MENU SUPERIOR */
+        .navbar-placeholder {
+            background-color: #ffffff;
+            width: 100%;
+            height: 50px;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            margin-bottom: 40px; /* Afasta o menu do logo */
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        /* Mensagem discreta dentro da barra para desenvolvedor */
+        .navbar-text {
+            color: #888888;
+            font-size: 13px;
+            font-family: sans-serif;
+        }
+        
+        /* 2. CONTAINER PRINCIPAL DO APP */
         .main-container {
             text-align: center;
-            padding: 30px;
+            padding: 20px;
             border-radius: 20px;
-            background: #ffffff;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.05);
-            margin-top: 20px;
+            margin-top: 10px;
         }
         
         /* Estilo do texto de versão */
@@ -42,7 +60,7 @@ st.markdown("""
         
         /* Ajuste fino do subtítulo */
         .subtitle {
-            color: #5f6368;
+            color: #9aa0a6;
             font-size: 16px;
             margin-bottom: 30px;
         }
@@ -51,10 +69,7 @@ st.markdown("""
 
 # --- 2. FUNÇÃO LOCAL PARA BUSCAR O APK MAIS RECENTE ---
 def buscar_apk_local_recente():
-    # Lista todos os arquivos da pasta atual (onde o app.py está)
     arquivos = os.listdir('.')
-    
-    # Padrão para encontrar: app-release_X.XX.apk
     padrao = re.compile(r"app-release_(\d+\.\d+)\.apk")
     apks_encontrados = []
     
@@ -63,31 +78,31 @@ def buscar_apk_local_recente():
         if match:
             versao_str = match.group(1)
             try:
-                # Transforma a versão em float para ordenar corretamente (ex: 1.10)
                 apks_encontrados.append((float(versao_str), versao_str, arquivo))
             except ValueError:
                 continue
                 
     if apks_encontrados:
-        # Ordena da maior versão para a menor
         apks_encontrados.sort(key=lambda x: x[0], reverse=True)
-        return apks_encontrados[0] # Retorna (versao_float, versao_texto, nome_do_arquivo)
-    
+        return apks_encontrados[0]
     return None
 
 # --- 3. INTERFACE VISUAL ---
 
-# Container principal em HTML para simular o card
+# Renderiza a barra de menu no topo (isolada do bloco da logo)
+st.markdown('<div class="navbar-placeholder"><span class="navbar-text">[ Espaço reservado para o futuro Menu ]</span></div>', unsafe_allow_html=True)
+
+# Container principal (Logo + Download)
 st.markdown('<div class="main-container">', unsafe_allow_html=True)
 
-# Exibe a logo local (LogoDoApp.png deve estar na mesma pasta)
+# Exibe a logo local com tamanho controlado para não estourar na tela
 nome_logo = "LogoDoApp.png"
 if os.path.exists(nome_logo):
-    col1, col2, col3 = st.columns([1, 1.8, 1])
+    col1, col2, col3 = st.columns([1, 1.5, 1]) # Ajustado o centro para o logo ficar harmônico
     with col2:
         st.image(nome_logo, use_container_width=True)
 
-st.markdown("<h1 style='text-align: center; margin-bottom: 5px;'>Fluxo de Rotas</h1>", unsafe_allow_html=True)
+st.markdown("<h1 style='text-align: center; margin-top: 15px; margin-bottom: 5px; color: white;'>Fluxo de Rotas</h1>", unsafe_allow_html=True)
 
 # Busca o APK local
 dados_apk = buscar_apk_local_recente()
@@ -98,7 +113,7 @@ if dados_apk:
     st.markdown(f'<div style="text-align: center;"><span class="version-tag">Versão Atual: v{versao_texto}</span></div>', unsafe_allow_html=True)
     st.markdown('<p class="subtitle">Otimize suas entregas e gerencie suas rotas direto do celular.</p>', unsafe_allow_html=True)
     
-    # Abre o arquivo em modo binário para o Streamlit servir o download real
+    # Botão de download real
     with open(nome_arquivo, "rb") as file:
         st.download_button(
             label="📥 Baixar Aplicativo (APK)",
@@ -116,7 +131,7 @@ st.markdown('</div>', unsafe_allow_html=True)
 
 # --- 4. RODAPÉ ---
 st.markdown("""
-    <div style="text-align: center; margin-top: 40px; color: #a0a0a0; font-size: 12px;">
+    <div style="text-align: center; margin-top: 60px; color: #70757a; font-size: 12px;">
         Desenvolvido para otimização de rotas logísticas.<br>
         Campinas • São Paulo
     </div>
