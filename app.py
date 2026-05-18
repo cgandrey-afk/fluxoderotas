@@ -10,7 +10,7 @@ st.set_page_config(
     page_icon="🚚"
 )
 
-# Estilização CSS personalizada para o novo layout com Menu Superior
+# Estilização CSS personalizada com ajustes responsivos para celular
 st.markdown("""
     <style>
         /* Remove menus e elementos padrões do Streamlit */
@@ -25,13 +25,12 @@ st.markdown("""
             height: 50px;
             border-radius: 12px;
             box-shadow: 0 4px 15px rgba(0,0,0,0.1);
-            margin-bottom: 2px; /* Afasta o menu do logo */
+            margin-bottom: 30px; /* Margem padrão para computador */
             display: flex;
             align-items: center;
             justify-content: center;
         }
         
-        /* Mensagem discreta dentro da barra para desenvolvedor */
         .navbar-text {
             color: #888888;
             font-size: 13px;
@@ -41,9 +40,8 @@ st.markdown("""
         /* 2. CONTAINER PRINCIPAL DO APP */
         .main-container {
             text-align: center;
-            padding: 20px;
-            border-radius: 20px;
-            margin-top: 10px;
+            padding: 10px;
+            margin-top: 0px;
         }
         
         /* Estilo do texto de versão */
@@ -55,14 +53,33 @@ st.markdown("""
             font-size: 14px;
             font-weight: bold;
             display: inline-block;
-            margin-bottom: 25px;
+            margin-bottom: 15px; /* Reduzido de 25px para 15px */
         }
         
         /* Ajuste fino do subtítulo */
         .subtitle {
             color: #9aa0a6;
             font-size: 16px;
-            margin-bottom: 30px;
+            margin-bottom: 25px;
+        }
+
+        /* =======================================================
+           REGRAS EXCLUSIVAS PARA CELULAR (Telas de até 768px)
+           ======================================================= */
+        @media (max-width: 768px) {
+            .navbar-placeholder {
+                margin-bottom: 15px; /* Corta o espaço do menu pela metade no celular */
+                height: 45px;
+            }
+            .main-container {
+                padding: 0px; /* Remove paddings desnecessários no celular */
+            }
+            .version-tag {
+                margin-bottom: 10px; /* Deixa o texto de versão mais colado no título */
+            }
+            .subtitle {
+                margin-bottom: 15px; /* Aproxima o texto do botão de download */
+            }
         }
     </style>
 """, unsafe_allow_html=True)
