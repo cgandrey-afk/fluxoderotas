@@ -1,4 +1,5 @@
 import streamlit as st
+import os
 import re
 import requests
 
@@ -102,7 +103,6 @@ st.markdown("""
 
 # --- 2. FUNÇÃO PARA BUSCAR O APK NA RELEASE ESPECÍFICA DO GITHUB ---
 def buscar_apk_github_recente(repo_full_name, tag):
-    # Busca a release específica pela tag que você está utilizando
     url = f"https://api.github.com/repos/{repo_full_name}/releases/tags/{tag}"
     headers = {"Accept": "application/vnd.github.v3+json"}
     
@@ -129,7 +129,6 @@ def buscar_apk_github_recente(repo_full_name, tag):
                     continue
                     
         if apks_encontrados:
-            # Ordena decrescente caso você suba mais de uma versão na mesma release
             apks_encontrados.sort(key=lambda x: x[0], reverse=True)
             return apks_encontrados[0]
             
@@ -167,7 +166,8 @@ if dados_apk:
         type="primary"
     )
 else:
-    st.markdown(f'<div style="text-align: center;"><span class="version-tag" style="background-color: #ffebee; color: #c62828;">⚠️ Nenhum APK encontrado na tag '{RELEASE_TAG}'</span></div>', unsafe_allow_html=True)
+    # Correção aplicada aqui (aspas duplas envolvendo a string e aspas simples na variável interna)
+    st.markdown(f"<div style=\"text-align: center;\"><span class=\"version-tag\" style=\"background-color: #ffebee; color: #c62828;\">⚠️ Nenhum APK encontrado na tag '{RELEASE_TAG}'</span></div>", unsafe_allow_html=True)
     st.info(f"Certifique-se de que há um APK no formato `app-release_1.66.apk` anexado na Release com a tag `{RELEASE_TAG}` no repositório `{GITHUB_REPO}`.")
 
 st.markdown('</div>', unsafe_allow_html=True)
