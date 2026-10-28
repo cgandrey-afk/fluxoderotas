@@ -2,6 +2,25 @@ import streamlit as st
 import os
 import re
 import requests
+import tornado.web
+
+# --- 1. CONFIGURAÇÃO DA API INTERNA (TORNADO) PARA EVITAR HIBERNAÇÃO ---
+class CronHandler(tornado.web.RequestHandler):
+    def get(self):
+        # Ação executada quando o cron-job faz a requisição GET
+        print("Cron executado com sucesso via API!")
+        self.set_status(200)
+        self.write({"status": "sucesso", "mensagem": "App mantido acordado"})
+
+def iniciar_rota_cron():
+    try:
+        server = st.runtime.get_instance()._server
+        # Cria a rota acessível em: https://fluxoderotas.streamlit.app/executar-cron
+        server._tornado_app.add_handlers(r".*", [(r"/executar-cron", CronHandler)])
+    except Exception:
+        pass
+
+iniciar_rota_cron()
 
 # --- CONFIGURAÇÃO DO REPOSITÓRIO DO GITHUB ---
 GITHUB_REPO = "cgandrey-afk/fluxoderotas"
@@ -127,7 +146,7 @@ def buscar_apk_github_recente(repo_full_name, tag):
                     apks_encontrados.append((float(versao_str), versao_str, nome_arquivo, download_url))
                 except ValueError:
                     continue
-                    
+                
         if apks_encontrados:
             apks_encontrados.sort(key=lambda x: x[0], reverse=True)
             return apks_encontrados[0]
@@ -166,7 +185,6 @@ if dados_apk:
         type="primary"
     )
 else:
-    # Correção aplicada aqui (aspas duplas envolvendo a string e aspas simples na variável interna)
     st.markdown(f"<div style=\"text-align: center;\"><span class=\"version-tag\" style=\"background-color: #ffebee; color: #c62828;\">⚠️ Nenhum APK encontrado na tag '{RELEASE_TAG}'</span></div>", unsafe_allow_html=True)
     st.info(f"Certifique-se de que há um APK no formato `app-release_1.66.apk` anexado na Release com a tag `{RELEASE_TAG}` no repositório `{GITHUB_REPO}`.")
 
